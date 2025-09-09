@@ -9,15 +9,17 @@ from datetime import datetime
 import pandas as pd
 import re
 
-def resource_path(relative_path):
-        """ Retorna o caminho absoluto para o recurso, funcionando tanto no modo de desenvolvimento quanto no PyInstaller """
-        try:
-            # PyInstaller cria uma pasta temporária e armazena o caminho em _MEIPASS
-            base_path = sys._MEIPASS
-        except AttributeError:
-            base_path = os.path.abspath(".")
 
-        return os.path.join(base_path, relative_path)
+def resource_path(relative_path):
+    """Retorna o caminho absoluto para o recurso, funcionando tanto no modo de desenvolvimento quanto no PyInstaller"""
+    try:
+        # PyInstaller cria uma pasta temporária e armazena o caminho em _MEIPASS
+        base_path = sys._MEIPASS
+    except AttributeError:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
+
 
 # ===> Classe: Recebimento dos dados do usuário para seguir com a automação <=== #
 class DadosUsuario:
@@ -26,6 +28,7 @@ class DadosUsuario:
         self.pwd_login = ""
         self.caminho_arquivo = ""
         self.grupo_email = ""
+
 
 # ===> Classe: Principal do aplicativo, interface com o usuário <=== #
 class App(ctk.CTk):
@@ -46,8 +49,8 @@ class App(ctk.CTk):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        self.criar_widgets() 
-   
+        self.criar_widgets()
+
     # ===> Cria e posiciona todos os componentes visuais da janela <=== #
     def criar_widgets(self):
 
@@ -67,14 +70,18 @@ class App(ctk.CTk):
         inputs_frame.grid_columnconfigure(1, weight=1)
 
         # --- E-mail ---
-        ctk.CTkLabel(inputs_frame, text="E-mail:", font=labels_font).grid(
-            row=0, column=0, padx=10, pady=10, sticky="w"
+        ctk.CTkLabel(
+            inputs_frame, text="E-mail para Notificação:", font=labels_font
+        ).grid(row=0, column=0, padx=10, pady=10, sticky="w")
+        self.entry_app_email = ctk.CTkEntry(
+            inputs_frame,
+            font=entry_font,
+            placeholder_text="email@suaempresa.com; outro@suaempresa.com",
         )
-        self.entry_app_email = ctk.CTkEntry(inputs_frame, font=entry_font)
         self.entry_app_email.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
         self.entry_app_email.insert(
             0,
-            "",
+            "",  # ATENÇÃO: Deixado em branco para o usuário preencher.
         )
 
         # --- Usuário ---
@@ -116,9 +123,9 @@ class App(ctk.CTk):
 
         # --- Imagem ---
         try:
-            # A função resource_path agora é global e pode ser chamada diretamente
-            caminho_imagem = resource_path(os.path.join("img", "modelo_tab_prev_vend.png"))
-            
+            # MODIFICADO: Nome do arquivo de imagem genérico
+            caminho_imagem = resource_path(os.path.join("img", "modelo_planilha.png"))
+
             imagem_modelo = ctk.CTkImage(
                 light_image=Image.open(caminho_imagem), size=(1262, 164)
             )
@@ -128,7 +135,7 @@ class App(ctk.CTk):
             )
         except Exception as e:
             msg_erro_img = (
-                f"Aviso: Imagem 'modelo_tab_prev_vend.png' não encontrada. (Erro: {e})"
+                f"Aviso: Imagem 'modelo_planilha.png' não encontrada. (Erro: {e})"
             )
             ctk.CTkLabel(file_frame, text=msg_erro_img, text_color="orange").grid(
                 row=1, column=0, columnspan=2, padx=10, pady=5, sticky="w"
@@ -235,9 +242,7 @@ class App(ctk.CTk):
     # ===> Função: Cria novo registro de log
     @staticmethod
     def cria_proximo_arquivo(folder_path, base_name):
-        ultimo_arquivo = App.encontra_ultimo_arquivo(
-            folder_path, base_name
-        )
+        ultimo_arquivo = App.encontra_ultimo_arquivo(folder_path, base_name)
         if ultimo_arquivo:
             ultimo_numero = int(re.search(r"\d+", ultimo_arquivo).group())
             proximo_numero = ultimo_numero + 1
@@ -249,10 +254,6 @@ class App(ctk.CTk):
 
     # ===> Função: Iniciar nossa automação, com ela podemos inciar a captação dos dados do usuário e também informar se falta algo essencial que impede o funcionamento correto da automação
     def iniciar_automacao(self):
-        # --- ALTERADO: Captura o tempo do clique e calcula a duração ---
-        # horario_clique = datetime.now()
-        # duracao_ate_clique = int((horario_clique - self.start_time).total_seconds())
-        
         self.dados.usuario_login = self.entry_app_user.get()
         self.dados.pwd_login = self.entry_app_pwd.get()
         self.dados.grupo_email = self.entry_app_email.get()
@@ -267,12 +268,14 @@ class App(ctk.CTk):
         if not self.dados.grupo_email:
             erros.append("E-mail é obrigatório.")
         else:
+            # ATENÇÃO: A validação de domínio foi alterada para um placeholder.
+            # Você pode ajustar o domínio ou remover esta validação se não for necessária.
             emails = self.dados.grupo_email.split(";")
             for email in emails:
                 email_limpo = email.strip()
-                if email_limpo and not email_limpo.endswith("@voss.net"):
+                if email_limpo and not email_limpo.endswith("@suaempresa.com"):
                     erros.append(
-                        f"O e-mail '{email_limpo}' não é um domínio válido (@voss.net)."
+                        f"O e-mail '{email_limpo}' não é um domínio válido (@suaempresa.com)."
                     )
                     break
 
@@ -280,7 +283,7 @@ class App(ctk.CTk):
             mensagem = "Erros de Validação:\n- " + "\n- ".join(erros)
             self.atualizar_status(mensagem, "yellow")
             return
-        
+
         # Lê o arquivo para obter a contagem de itens
         quantidade_itens = 0
         try:
@@ -332,4 +335,3 @@ class App(ctk.CTk):
 if __name__ == "__main__":
     app = App()
     app.mainloop()
-

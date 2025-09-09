@@ -14,6 +14,10 @@ from selenium.webdriver.common.keys import Keys
 from win32com.client import Dispatch
 from selenium.webdriver.common.action_chains import ActionChains
 
+# ATENÇÃO: Defina o nome da rotina do Microsiga aqui para facilitar a manutenção.
+NOME_ROTINA = "MATASC4"
+
+
 # ===> Classe: Principal onde todo o processo de automação esta alocado
 class MicrosigaAutomacao:
     # ===> Função: Recebimento dos dados do usuário recebidos da interface com usuário
@@ -123,9 +127,9 @@ class MicrosigaAutomacao:
                 print("---> Pop-up de reforma tributária encontrado. Fechando...")
                 botao_fechar.click()
                 time.sleep(1)
-                print("    - Aguardando pop-up de parâmetros desaparecer...")
+                print("     - Aguardando pop-up de parâmetros desaparecer...")
                 self.short_wait.until(EC.staleness_of(botao_fechar))
-                print("    - Pop-up fechado com sucesso.")
+                print("     - Pop-up fechado com sucesso.")
                 continue  # Reinicia o loop para verificar o estado novamente
             except TimeoutException:
                 pass  # Pop-up não encontrado, continue
@@ -141,7 +145,7 @@ class MicrosigaAutomacao:
                 )
                 botao_limite.click()
                 time.sleep(1)
-                print("    - Aguardando pop-up de limite desaparecer...")
+                print("     - Aguardando pop-up de limite desaparecer...")
                 self.short_wait.until(EC.staleness_of(botao_limite))
 
                 # Clica em Home e navega para a rotina novamente
@@ -152,13 +156,13 @@ class MicrosigaAutomacao:
                 )
                 botao_home.click()
 
-                self.navegar_rotina(modulo="MATASC4")
+                self.navegar_rotina(modulo=NOME_ROTINA)
                 print("---> Recuperação concluída. Reiniciando verificação de pop-ups.")
                 continue  # Reinicia o loop para reavaliar a nova tela.
             except TimeoutException:
                 pass  # Pop-up não está visível, continue.
 
-            print("  - Nenhum pop-up ativo detectado. Aguardando a tela carregar...")
+            print(" - Nenhum pop-up ativo detectado. Aguardando a tela carregar...")
             time.sleep(1)  # Pequena pausa para evitar sobrecarregar o processador
 
             # ===> Try: Tenta encontrar e fechar o pop-up de "escolha da rotina"
@@ -183,7 +187,7 @@ class MicrosigaAutomacao:
         try:
             time.sleep(5)
             self._verificar_parada()
-            print("\n--- NAVEGANDO PARA A ROTINA 'MATASC4' ---")
+            print(f"\n--- NAVEGANDO PARA A ROTINA '{modulo}' ---")
             modulo = f"{modulo}"
             path_campo_pesquisa = ["wa-text-input#COMP3056", "input"]
             campo_pesquisa_real = self._find_first_element(path_campo_pesquisa)
@@ -259,10 +263,12 @@ class MicrosigaAutomacao:
 
         if df is None:
             return [], [], []
-        print("Iniciando processamento das provisões na rotina: MATASC4.")
+        print(f"Iniciando processamento das provisões na rotina: {NOME_ROTINA}.")
         pedidos_sucesso = []
         pedidos_falha = set()
-        pn_voss_falha = set()
+        codigos_produto_falha = (
+            set()
+        )  # MODIFICADO: Nome da variável de 'pn_voss_falha' para 'codigos_produto_falha'
 
         # ---> Define os seletores
         seletor_cod_cliente = ["wa-text-input#COMP6003", "input"]
@@ -299,14 +305,14 @@ class MicrosigaAutomacao:
         for index, row in df.iterrows():
             self._verificar_parada()
             pedido_atual = None
-            pn_voss = None
+            codigo_produto = None  # MODIFICADO: Nome da variável
             try:
                 if pd.isna(row["C6_CLI"]):
                     continue
 
                 # ---> Mapeamento de cada coluna da planilha e suas respectivas informações por linha - Tratamento de cada campo com preenchimento com a quantidade ideal de zeros
                 pedido_atual = str(int(row["C6_NUM"])).zfill(6)
-                pn_voss = str(row["C6_PRODUTO"])
+                codigo_produto = str(row["C6_PRODUTO"])  # MODIFICADO: Nome da variável
                 cliente_cod = str(int(row["C6_CLI"])).zfill(6)
                 loja = str(int(row["C6_LOJA"])).zfill(2)
                 quantidade = str(int(row["C6_QTDVEN"])).zfill(9)
@@ -320,8 +326,8 @@ class MicrosigaAutomacao:
                         )
                         if pedido_atual not in pedidos_falha:
                             pedidos_falha.add(pedido_atual)
-                        if pn_voss not in pn_voss_falha:
-                            pn_voss_falha.add(pn_voss)
+                        if codigo_produto not in codigos_produto_falha:
+                            codigos_produto_falha.add(codigo_produto)
                         continue
 
                     # ---> Tratamento da data de previsão de vendas
@@ -341,11 +347,13 @@ class MicrosigaAutomacao:
                     )
                     if pedido_atual not in pedidos_falha:
                         pedidos_falha.add(pedido_atual)
-                    if pn_voss not in pn_voss_falha:
-                        pn_voss_falha.add(pn_voss)
+                    if codigo_produto not in codigos_produto_falha:
+                        codigos_produto_falha.add(codigo_produto)
                     continue
 
-                print(f"---> Processando linha {index + 2} | Produto: {pn_voss} ---")
+                print(
+                    f"---> Processando linha {index + 2} | Produto: {codigo_produto} ---"
+                )
 
                 # ---> Preenchimento dos campos de cabeçalho
                 # ---> Preenchimento código cliente
@@ -353,8 +361,8 @@ class MicrosigaAutomacao:
                 campo_cliente_el = self._find_first_element(seletor_cod_cliente)
                 campo_cliente_el.clear()
                 campo_cliente_el.send_keys(cliente_cod)
-                valor_atual_cliente = campo_cliente_el.get_attribute('value')
-                if valor_atual_cliente == '' or valor_atual_cliente != cliente_cod:
+                valor_atual_cliente = campo_cliente_el.get_attribute("value")
+                if valor_atual_cliente == "" or valor_atual_cliente != cliente_cod:
                     campo_cliente_el.clear()
                     campo_cliente_el.send_keys(cliente_cod)
                 print(f" ---> Código do Cliente {cliente_cod} preenchido")
@@ -364,41 +372,49 @@ class MicrosigaAutomacao:
                 campo_loja_el = self._find_first_element(seletor_loja)
                 campo_loja_el.clear()
                 campo_loja_el.send_keys(loja)
-                valor_atual_loja = campo_loja_el.get_attribute('value')
-                if valor_atual_loja == '' or valor_atual_loja != loja:
+                valor_atual_loja = campo_loja_el.get_attribute("value")
+                if valor_atual_loja == "" or valor_atual_loja != loja:
                     campo_loja_el.clear()
                     campo_loja_el.send_keys(loja)
                 print(f" ---> Loja {loja} preenchida.")
                 time.sleep(1)
 
-                # ---> Preenchimento código Voss
+                # ---> Preenchimento código do Produto
                 campo_produto_el = self._find_first_element(seletor_produto)
-                print(f"Quantidade de caracteres PN Voss: {len(pn_voss)}")
-                if len(pn_voss) <= 15:
+                print(
+                    f"Quantidade de caracteres do Código do Produto: {len(codigo_produto)}"
+                )
+                if len(codigo_produto) <= 15:
                     campo_produto_el.clear()
-                    campo_produto_el.send_keys(pn_voss)
-                    valor_atual_produto = campo_produto_el.get_attribute('value')
-                    if valor_atual_produto == '' or valor_atual_produto != pn_voss:
+                    campo_produto_el.send_keys(codigo_produto)
+                    valor_atual_produto = campo_produto_el.get_attribute("value")
+                    if (
+                        valor_atual_produto == ""
+                        or valor_atual_produto != codigo_produto
+                    ):
                         campo_produto_el.clear()
-                        campo_produto_el.send_keys(pn_voss)
+                        campo_produto_el.send_keys(codigo_produto)
                     campo_produto_el.send_keys(Keys.ENTER)
                     time.sleep(1)
                 else:
-                    campo_produto_el.send_keys(pn_voss)
-                    if valor_atual_produto == '' or valor_atual_produto != pn_voss:
+                    campo_produto_el.send_keys(codigo_produto)
+                    if (
+                        valor_atual_produto == ""
+                        or valor_atual_produto != codigo_produto
+                    ):
                         campo_produto_el.clear()
-                        campo_produto_el.send_keys(pn_voss)   
-                print(f" ---> Produto {pn_voss} preenchido e validado.")
+                        campo_produto_el.send_keys(codigo_produto)
+                print(f" ---> Produto {codigo_produto} preenchido e validado.")
                 time.sleep(1)
 
                 # ---> Identificação do campo ultima NF
                 campo_ultima_nf = self._find_first_element(seletor_ultima_nf)
                 campo_ultima_nf.click()
-                valor_atual = campo_ultima_nf.get_attribute('value')
-                valor_sem_espacos = valor_atual.replace(' ', '') 
-                if valor_sem_espacos == '0':
-                    campo_ultima_nf.clear() 
-                    campo_ultima_nf.send_keys('1'.zfill(6))
+                valor_atual = campo_ultima_nf.get_attribute("value")
+                valor_sem_espacos = valor_atual.replace(" ", "")
+                if valor_sem_espacos == "0":
+                    campo_ultima_nf.clear()
+                    campo_ultima_nf.send_keys("1".zfill(6))
 
                 # campo_ultima_nf.click()
                 time.sleep(0.5)
@@ -416,8 +432,8 @@ class MicrosigaAutomacao:
                 campo_quantidade_el.clear()
                 time.sleep(1)
                 campo_quantidade_el.send_keys(quantidade)
-                valor_atual_quantidade = campo_quantidade_el.get_attribute('value') 
-                if valor_atual_quantidade == '' or valor_atual_quantidade != quantidade:
+                valor_atual_quantidade = campo_quantidade_el.get_attribute("value")
+                if valor_atual_quantidade == "" or valor_atual_quantidade != quantidade:
                     campo_quantidade_el.click()
                     time.sleep(1)
                     campo_quantidade_el.clear()
@@ -434,8 +450,11 @@ class MicrosigaAutomacao:
                 time.sleep(1)
                 campo_dt_previsao_el.send_keys(data_numeria_enviar)
                 time.sleep(1)
-                valor_atual_previsao = campo_dt_previsao_el.get_attribute('value') 
-                if valor_atual_previsao == '' or valor_atual_previsao != data_numeria_enviar:
+                valor_atual_previsao = campo_dt_previsao_el.get_attribute("value")
+                if (
+                    valor_atual_previsao == ""
+                    or valor_atual_previsao != data_numeria_enviar
+                ):
                     campo_dt_previsao_el.clear()
                     time.sleep(1)
                     campo_dt_previsao_el.send_keys(data_numeria_enviar)
@@ -448,8 +467,8 @@ class MicrosigaAutomacao:
                 campo_release_el.clear()
                 time.sleep(1)
                 campo_release_el.send_keys(pedido_atual)
-                valor_atual_pedido = campo_release_el.get_attribute('value')
-                if valor_atual_pedido == '' or valor_atual_pedido != pedido_atual:
+                valor_atual_pedido = campo_release_el.get_attribute("value")
+                if valor_atual_pedido == "" or valor_atual_pedido != pedido_atual:
                     campo_release_el.clear()
                     time.sleep(1)
                     campo_release_el.send_keys(pedido_atual)
@@ -479,18 +498,20 @@ class MicrosigaAutomacao:
                     )
                 )
 
-                print(f"Linha {index + 2} salva com sucesso para o produto {pn_voss}")
+                print(
+                    f"Linha {index + 2} salva com sucesso para o produto {codigo_produto}"
+                )
                 if pedido_atual not in pedidos_sucesso:
                     pedidos_sucesso.append(pedido_atual)
                 pedidos_falha.discard(pedido_atual)
-                pn_voss_falha.discard(pn_voss)
+                codigos_produto_falha.discard(codigo_produto)
 
             except Exception as e:
                 print(f"ERRO ao processar a linha {index + 2}: {e}")
                 if pedido_atual not in pedidos_falha:
                     pedidos_falha.add(pedido_atual)
-                if pn_voss not in pedidos_falha:
-                    pn_voss_falha.add(pn_voss)
+                if codigo_produto not in codigos_produto_falha:
+                    codigos_produto_falha.add(codigo_produto)
 
                 try:
                     print(" ---> Tentando recuperar do erro...")
@@ -508,35 +529,45 @@ class MicrosigaAutomacao:
                         " ---> Recuperação bem-sucedida. Continuando para a próxima linha."
                     )
                 except Exception as cancel_error:
-                    print(f" ---> ERRO CRÍTICO NA RECUPERAÇÃO. A automação será interrompida. Erro: {cancel_error}")
+                    print(
+                        f" ---> ERRO CRÍTICO NA RECUPERAÇÃO. A automação será interrompida. Erro: {cancel_error}"
+                    )
                     # Adiciona todos os itens restantes à lista de falhas
-                    pedidos_restantes = df.loc[index:, "C6_NUM"].dropna().astype(str).unique()
-                    pn_voss_restantes = df.loc[index:, "C6_PRODUTO"].dropna().astype(str).unique()
+                    pedidos_restantes = (
+                        df.loc[index:, "C6_NUM"].dropna().astype(str).unique()
+                    )
+                    codigos_produto_restantes = (
+                        df.loc[index:, "C6_PRODUTO"].dropna().astype(str).unique()
+                    )
                     pedidos_falha.update(pedidos_restantes)
-                    pn_voss_falha.update(pn_voss_restantes)
-                    break 
+                    codigos_produto_falha.update(codigos_produto_restantes)
+                    break
                 continue
 
         print(" ---> Processamento das previsões finalizado.")
-        return pedidos_sucesso, list(pedidos_falha), list(pn_voss_falha)
+        return pedidos_sucesso, list(pedidos_falha), list(codigos_produto_falha)
 
     # ===> Função: Criação do email para usuário de acordo com o cadastro da previsão
-    def enviar_email(self, pedidos_sucesso, pedidos_falha, pn_voss_falha, err=0, inf=None):
+    def enviar_email(
+        self, pedidos_sucesso, pedidos_falha, codigos_produto_falha, err=0, inf=None
+    ):
         # ---> Se erro fatal, envia e-mail de erro e sai
         if err == 1:
             print("Preparando para enviar email de notificação de ERRO FATAL.")
             try:
                 outlook = Dispatch("outlook.application")
                 mail = outlook.CreateItem(0)
-                mail.To = ""
+                # MODIFICADO: E-mail agora vem da interface do usuário
+                mail.To = self.user_mail
                 mail.Subject = "ERRO FATAL - Ajuste Previsão de Vendas"
                 mail.Attachments.Add(self.arquivo)
+                # MODIFICADO: Corpo do e-mail genérico
                 html_body = f"""<p>Olá,</p>
                 <p>A rotina de cadastro de previsão de vendas falhou com um erro crítico:</p><p><b>{inf}</b></p>
                 <p>Att,
-                <br>Bot VOSS</p>
-                <br>VOSS Automotive Ltda.
-                <br>Website: www.voss.net </br>"""
+                <br>Bot de Automação</p>
+                <br>[Nome da Empresa]
+                <br>Website: [Website da Empresa]</br>"""
                 mail.HTMLBody = html_body
                 mail.Send()
                 print("Email de erro fatal enviado!")
@@ -555,21 +586,25 @@ class MicrosigaAutomacao:
         try:
             outlook = Dispatch("outlook.application")
             mail = outlook.CreateItem(0)
-            mail.To = "juan.frois@voss.net"
+            # MODIFICADO: E-mail agora vem da interface do usuário
+            mail.To = self.user_mail
             html_body = ""
 
             # ---> Caso 1: Todos os pedidos falharam
             if not pedidos_sucesso and pedidos_falha:
                 pedidos_falha_str = ", ".join(map(str, sorted(pedidos_falha)))
-                pn_voss_falha_str = ", ".join(map(str, sorted(pn_voss_falha)))
+                codigos_produto_falha_str = ", ".join(
+                    map(str, sorted(codigos_produto_falha))
+                )  # MODIFICADO
                 mail.Subject = "FALHA - Ajuste Previsão de Vendas"
+                # MODIFICADO: Corpo do e-mail genérico
                 html_body = f"""
                     <p>Olá,</p>
                     <p>A automação foi executada, mas <b>nenhuma previsão foi cadastrada com sucesso</b>.</p>
-                    <p>Os seguintes pedidos continham itens que não puderam ser processados:<br>Pedido: {pedidos_falha_str} | PN Voss: {pn_voss_falha_str}</b>.</p>
+                    <p>Os seguintes pedidos continham itens que não puderam ser processados:<br>Pedido: {pedidos_falha_str} |<br>Código do Produto: {codigos_produto_falha_str}</b>.</p>
                     <p>Verifique os logs no terminal para mais detalhes.</p>
-                    <p>Att,<br>Sales Bot</p><br>VOSS Automotive Ltda.
-                    <br>Website: www.voss.net </br>"""
+                    <p>Att,<br>Bot de Automação</p><br>[Nome da Empresa]
+                    <br>Website: [Website da Empresa]</br>"""
                 messagebox.showwarning(
                     "Atenção",
                     "Nenhuma previsão foi cadastrada com sucesso. Email de falha enviado.",
@@ -581,22 +616,24 @@ class MicrosigaAutomacao:
                 mail.Subject = (
                     f"Ajuste Previsão de Vendas - Pedido(s): {pedidos_sucesso_str}"
                 )
-                # CORREÇÃO: Tag <b> consertada
+                # MODIFICADO: Corpo do e-mail genérico
                 corpo_email = f"""
                     <p>Olá,</p>
                     <p>As previsões para os pedidos <b>{pedidos_sucesso_str}</b> foram cadastradas com sucesso.</p>
                 """
                 if pedidos_falha:
                     pedidos_falha_str = ", ".join(map(str, sorted(pedidos_falha)))
-                    pn_voss_falha_str = ", ".join(map(str, sorted(pn_voss_falha)))
-                    corpo_email += f"<p><br>Atenção:</br> Os itens não puderam ser processados:<br>Pedido: {pedidos_falha_str} |<br>PN Voss: {pn_voss_falha_str}</br>.</p>"
+                    codigos_produto_falha_str = ", ".join(
+                        map(str, sorted(codigos_produto_falha))
+                    )  # MODIFICADO
+                    corpo_email += f"<p><br>Atenção:</br> Os itens não puderam ser processados:<br>Pedido: {pedidos_falha_str} |<br>Código do Produto: {codigos_produto_falha_str}</br>.</p>"
 
-                corpo_email += "<p>Att,<br>Sales Bot</p><br>VOSS Automotive Ltda.<br>Website: www.voss.net </br>"
+                corpo_email += "<p>Att,<br>Bot de Automação</p><br>[Nome da Empresa]<br>Website: [Website da Empresa]</br>"
                 html_body = corpo_email
                 messagebox.showinfo(
                     "Sucesso!", "Previsão de vendas processada e email enviado!"
                 )
-            if html_body: # Apenas envia se houver corpo de email
+            if html_body:  # Apenas envia se houver corpo de email
                 mail.Attachments.Add(self.arquivo)
                 mail.HTMLBody = html_body
                 mail.Send()
@@ -607,7 +644,7 @@ class MicrosigaAutomacao:
             messagebox.showerror(
                 "Erro de Email", f"Não foi possível enviar o e-mail: {e}"
             )
- 
+
     # ===> Função: Execução de toda a automação, onde puxamos as funções acima criadas e organização de lógica de trabalho
     def executar(self):
         df = None
@@ -618,7 +655,8 @@ class MicrosigaAutomacao:
             self._iniciar_driver()
             self._verificar_parada()
             print("\n ---> ACESSANDO PÁGINA DO MICROSIGA ---")
-            self.driver.get("")
+            # ATENÇÃO: Insira a URL do seu sistema Microsiga aqui.
+            self.driver.get("https://seu-microsiga.exemplo.com")
             self._verificar_parada()
 
             # ---> ETAPA 1: CLIQUE NO BOTÃO 'OK' INICIAL
@@ -700,7 +738,10 @@ class MicrosigaAutomacao:
             try:
                 time.sleep(3)
                 self._verificar_parada()
-                css_selector_ambiente_host = "wa-webview[src*='preindex_env_voss']"
+                # MODIFICADO: Seletor genérico. Ajuste 'sua_empresa' se necessário.
+                css_selector_ambiente_host = (
+                    "wa-webview[src*='preindex_env_sua_empresa']"
+                )
                 print("\n--- INICIANDO ETAPA DE CONFIGURAÇÃO DE AMBIENTE E SESSÃO ---")
                 ambiente_host = self.wait.until(
                     EC.presence_of_element_located(
@@ -775,7 +816,7 @@ class MicrosigaAutomacao:
 
             # --- ETAPA 6: NAVEGAÇÃO PARA A ROTINA ---
             self._verificar_parada()
-            self.navegar_rotina(modulo="MATASC4")
+            self.navegar_rotina(modulo=NOME_ROTINA)
 
             # Chama o tratamento de pop-ups APÓS a navegação.
             self._verificar_parada()
@@ -783,7 +824,7 @@ class MicrosigaAutomacao:
 
             # --- ETAPA 7: INTERAÇÃO COM A ROTINA ---
             self._verificar_parada()
-            print("\n ---> CLICANDO EM 'INCLUIR' NA ROTINA: MATASC4 ---")
+            print(f"\n ---> CLICANDO EM 'INCLUIR' NA ROTINA: {NOME_ROTINA} ---")
             path_seletor_botao_incluir = ["wa-button#COMP4566", "button"]
 
             # Espera o botão Incluir da tela de browse estar clicável
@@ -796,8 +837,10 @@ class MicrosigaAutomacao:
             # --- ETAPA 8: PROCESSAMENTO DO ARQUIVO ---
             self._verificar_parada()
             df = self.ler_arquivo()
-            pedidos_sucesso, pedidos_falha, pn_voss_falha = self.processar_provisoes(df)
-            self.enviar_email(pedidos_sucesso, pedidos_falha, pn_voss_falha)
+            pedidos_sucesso, pedidos_falha, codigos_produto_falha = (
+                self.processar_provisoes(df)
+            )
+            self.enviar_email(pedidos_sucesso, pedidos_falha, codigos_produto_falha)
 
             return {
                 "sucesso": True,
@@ -813,7 +856,7 @@ class MicrosigaAutomacao:
 
             traceback.print_exc()
             msg_erro = f"Exceção: {type(e).__name__}\nDetalhes: {str(e)}\nTraceback: {traceback.format_exc()}"
-            self.enviar_email([], [],[], err=1, inf=msg_erro)
+            self.enviar_email([], [], [], err=1, inf=msg_erro)
             return {"sucesso": False, "mensagem": f"Erro fatal: {e}"}
 
         finally:
